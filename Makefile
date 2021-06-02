@@ -53,3 +53,17 @@ pypi_test:
 
 pypi:
 	@twine upload dist/* -u $(PYPI_USERNAME)
+
+# ----------------------------------
+#      GCLOUD RELATED
+# ----------------------------------
+
+LOCAL_PATH = "/home/awa5114/code/awa5114/TaxiFareModel/raw_data/train_1k.csv"
+BUCKET_FOLDER=data
+BUCKET_FILE_NAME=$(shell basename ${LOCAL_PATH})
+PROJECT_ID = "wagon-bootcamp-311213"
+BUCKET_NAME="wagon-data-627-aboufirass"
+REGION=europe-west4
+
+upload_data:
+	@gsutil cp ${LOCAL_PATH} gs://${BUCKET_NAME}/${BUCKET_FOLDER}/${BUCKET_FILE_NAME}

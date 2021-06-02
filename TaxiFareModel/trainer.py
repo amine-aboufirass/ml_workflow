@@ -7,7 +7,12 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.linear_model import LinearRegression
 from sklearn.compose import ColumnTransformer
 import pandas as pd
+import mlflow
+from mlflow.tracking import MlflowClient
+from memoized_property import memoized_property
+import joblib
 class Trainer():
+    
     def __init__(self, X, y):
         """
             X: pandas DataFrame
@@ -16,7 +21,8 @@ class Trainer():
         self.pipeline = None
         self.X = X
         self.y = y
-
+        self.mlflow_uri = "https://mlflow.lewagon.co/"
+        self.experiment_name = "[NL] [Amsterdam] [awa5114] amines_model+v1]"
     def set_pipeline(self):
         '''returns a pipelined model'''
         dist_pipe = Pipeline([
@@ -48,8 +54,34 @@ class Trainer():
         '''returns the value of the RMSE'''
         y_pred = self.pipeline.predict(X_test)
         rmse = compute_rmse(y_pred, y_test)
+        self.mlflow_log_metric('rmse', rmse)
+        self.mlflow_log_param('model', 'linear')
         return rmse
+        
+    @memoized_property
+    def mlflow_client(self):
+        mlflow.set_tracking_uri(self.mlflow_uri)
+        return MlflowClient()
 
+    @memoized_property
+    def mlflow_experiment_id(self):
+        try:
+            return self.mlflow_client.create_experiment(self.experiment_name)
+        except BaseException:
+            return self.mlflow_client.get_experiment_by_name(self.experiment_name).experiment_id
+
+    @memoized_property
+    def mlflow_run(self):
+        return self.mlflow_client.create_run(self.mlflow_experiment_id)
+    def mlflow_log_param(self, key, value):
+        self.mlflow_client.log_param(self.mlflow_run.info.run_id, key, value)
+
+    def mlflow_log_metric(self, key, value):
+        self.mlflow_client.log_metric(self.mlflow_run.info.run_id, key, value)
+
+    def save_model(self):
+        """ Save the trained model into a model.joblib file """
+        joblib.dump(self.pipeline, 'model.joblib')
 
 if __name__ == "__main__":
     # get data
@@ -67,5 +99,7 @@ if __name__ == "__main__":
     trainer.run()
     # evaluate
     rmse = trainer.evaluate(X_test, y_test)
+    experiment_id = trainer.mlflow_experiment_id
+    print(f"experiment URL: https://mlflow.lewagon.co/#/experiments/{experiment_id}")
     print(rmse)
     print('TODO')
